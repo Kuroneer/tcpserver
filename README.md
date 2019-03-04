@@ -1,6 +1,7 @@
 # tcpserver
 
-Simple erlang tcp server application to use as dependency.
+Simple (3 modules) erlang tcp server application to use as dependency for my projects.  
+You may want to check [ranch](https://github.com/ninenines/ranch).
 
 ## How to use:
 
