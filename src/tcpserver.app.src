@@ -1,0 +1,16 @@
+{application, tcpserver,
+ [{description, "A simple OTP TCP server"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, { tcpserver, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
