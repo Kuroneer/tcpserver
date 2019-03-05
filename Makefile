@@ -24,5 +24,5 @@ clean:
 	rebar3 clean
 
 purge:
-	rm -rf _build/* _build
+	rm -rf _build/* _build ebin/* _ebin
 
