@@ -1,5 +1,10 @@
-%%% Listens in a socket and maintains a pool of acceptors running
-
+%%%-------------------------------------------------------------------
+%% @doc Listens in a socket and maintains a pool of acceptors running
+%% @end
+%%%-------------------------------------------------------------------
+% Part of tcpserver Erlang App
+% MIT License
+% Copyright (c) 2019 Jose Maria Perez Ramos
 -module(tcpserver_listener).
 
 %% API
@@ -9,41 +14,58 @@
          get_socket_from_child/1
         ]).
 
-%% gen_server callbacks
 -behaviour(gen_server).
 -export([
          init/1,
          handle_cast/2,
          handle_call/3,
          handle_info/2,
-         terminate/2
+         terminate/2,
+         code_change/3
         ]).
 
--record(state, {
-          port,
-          listen_socket,
-          worker_spawner,
-          notify_socket_transfer = false,
-          accept_timeout = infinity,
-          acceptors_target_number = 0,
-          acceptors_size = 0,
-          acceptors = #{},
-          check_acceptors_ref = undefined
-         }).
-
 -define(MAX_BURST, 30).
+
+
+%%====================================================================
+%% Types
+%%====================================================================
+
+-type worker_spawner() :: fun() | {atom(), atom(), list()} | {atom() | atom()} | atom().
+-type port_identifier() :: pos_integer() | atom().
+
+-export_type([
+              worker_spawner/0,
+              port_identifier/0
+             ]).
+
+%% gen_server state
+-record(state, {
+          port                              :: port_identifier(),
+          listen_socket                     :: gen_tcp:socket(),
+          worker_spawner                    :: worker_spawner(),
+          notify_socket_transfer = false    :: boolean(),
+          accept_timeout = infinity         :: timeout(),
+          acceptors_target_number = 0       :: non_neg_integer(),
+          acceptors_size = 0                :: non_neg_integer(),
+          acceptors = #{}                   :: #{pid() => true},
+          check_acceptors_ref = undefined   :: undefined | reference()
+         }).
 
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
+-spec start_link(port_identifier(), worker_spawner(), list(), non_neg_integer()) -> {ok, pid()} | {error, term()}.
 start_link(Port, WorkerSpawner, ListeningOptions, AcceptorsNumber) ->
     gen_server:start_link(?MODULE, {Port, WorkerSpawner, ListeningOptions, AcceptorsNumber}, []).
 
+-spec set_acceptors_num(pid(), non_neg_integer()) -> ok.
 set_acceptors_num(Pid, NewAcceptors) ->
     gen_server:call(Pid, {new_acceptors, NewAcceptors}).
 
+-spec get_socket_from_child(pid()) -> gen_tcp:socket().
 get_socket_from_child(Pid) ->
     #state{listen_socket = ListenSocket} = sys:get_state(Pid),
     ListenSocket.
@@ -53,6 +75,7 @@ get_socket_from_child(Pid) ->
 %% gen_server callbacks
 %%====================================================================
 
+-spec init({port_identifier(), worker_spawner(), list(), non_neg_integer()}) -> {ok, #state{}} | {stop, term()}.
 init({Port, WorkerSpawner, ListeningOptions, AcceptorsNumber}) ->
     IntPort = case Port of
                   P when is_integer(P) -> P;
@@ -78,9 +101,11 @@ init({Port, WorkerSpawner, ListeningOptions, AcceptorsNumber}) ->
         Error -> {stop, Error}
     end.
 
+-spec handle_cast(term(), #state{}) -> {noreply, #state{}}.
 handle_cast(_, S) ->
     {noreply, S}.
 
+-spec handle_call(term(), {pid(), reference()}, #state{}) -> {reply, ok, #state{}} | {noreply, #state{}}.
 handle_call({new_acceptors, NewAcceptors}, _From, State) ->
     CheckAcceptorsRef = undefined,
     {noreply, NewState} = handle_info({check_acceptors, CheckAcceptorsRef},
@@ -92,6 +117,7 @@ handle_call({new_acceptors, NewAcceptors}, _From, State) ->
 handle_call(_E, _From, State) ->
     {noreply, State}.
 
+-spec handle_info(term(), #state{}) -> {noreply, #state{}} | {stop, term(), #state{}}.
 handle_info({check_acceptors, CheckAcceptorsRef},
             #state{
                port = Port,
@@ -169,12 +195,34 @@ handle_info({'EXIT', FromPid, Reason},
 handle_info(_E, S) ->
     {noreply, S}.
 
+-spec terminate(term(), #state{}) -> ok.
 terminate(normal, _State) ->
     ok;
 terminate(shutdown, _State) ->
     ok;
 terminate(Reason, _State) ->
-    logger:info("~p (~p): Terminate reason: ~p", [?MODULE, self(), Reason]).
+    logger:info("~p (~p): Terminate reason: ~p", [?MODULE, self(), Reason]),
+    ok.
+
+
+-spec code_change(term() | {down, term()}, #state{}, term()) -> {ok, #state{}}.
+code_change(_Vsn, #state{acceptors = OldAcceptors} = State, _Extra) ->
+    % Create new acceptors
+    CheckAcceptorsRef = undefined,
+    {noreply, NewState} = handle_info({check_acceptors, CheckAcceptorsRef},
+                                      State#state{
+                                        acceptors = #{},
+                                        acceptors_size = 0,
+                                        check_acceptors_ref = CheckAcceptorsRef
+                                       }),
+    % Remove old acceptors
+    {#{}, 0} = remove_acceptors(
+                 maps:iterator(OldAcceptors),
+                 maps:size(OldAcceptors),
+                 OldAcceptors,
+                 maps:size(OldAcceptors)
+                ),
+    {ok, NewState}.
 
 
 %%====================================================================

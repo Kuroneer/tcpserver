@@ -2,6 +2,9 @@
 %% @doc tcpserver application, public API and top level supervisor
 %% @end
 %%%-------------------------------------------------------------------
+% Part of tcpserver Erlang App
+% MIT License
+% Copyright (c) 2019 Jose Maria Perez Ramos
 -module(tcpserver).
 
 %% API
@@ -14,11 +17,9 @@
          get_socket_from_child/1
         ]).
 
-%% Application callbacks
 -behaviour(application).
 -export([start/2, stop/1]).
 
-%% Supervisor callbacks
 -behaviour(supervisor).
 -export([init/1]).
 
@@ -27,27 +28,44 @@
 
 
 %%====================================================================
+%% Types
+%%====================================================================
+
+-type worker_spawner() :: tcpserver_listener:worker_spawner().
+-type port_identifier() :: tcpserver_listener:port_identifier().
+
+
+%%====================================================================
 %% API functions
 %%====================================================================
 
+-spec add_port_listener(port_identifier(), worker_spawner()) -> {ok, undefined | pid()} | {error, term()}.
 add_port_listener(Port, WorkerSpawner) ->
     add_port_listener_int({Port, WorkerSpawner}).
 
 %% Listen options as for gen_tcp:listen:
 %% gen_tcp:listen(Port, [{reuseaddr, true}, {active, once}, {ip, {0,0,0,0}}])...
+%% plus {accept_timeout, timeout()} and {notify_socket_transfer, boolean()}
+-spec add_port_listener(port_identifier(), worker_spawner(), list() | non_neg_integer()) ->
+    {ok, undefined | pid()} | {error, term()}.
 add_port_listener(Port, WorkerSpawner, ListenOptionsOrAcceptorsNumber) ->
     add_port_listener_int({Port, WorkerSpawner, ListenOptionsOrAcceptorsNumber}).
 
+-spec add_port_listener(port_identifier(), worker_spawner(), list(), non_neg_integer()) ->
+    {ok, undefined | pid()} | {error, term()}.
 add_port_listener(Port, WorkerSpawner, ListenOptions, AcceptorsNumber) ->
     add_port_listener_int({Port, WorkerSpawner, ListenOptions, AcceptorsNumber}).
 
+-spec remove_port_listener(port_identifier()) -> ok | {error, term()}.
 remove_port_listener(Port) ->
     supervisor:terminate_child(?MODULE, Port),
     supervisor:delete_child(?MODULE, Port).
 
+-spec change_port_acceptors_number(port_identifier(), non_neg_integer()) -> ok.
 change_port_acceptors_number(Port, NewAcceptors) when is_integer(NewAcceptors), NewAcceptors >= 0 ->
     tcpserver_listener:set_acceptors_num(child_pid(Port), NewAcceptors).
 
+-spec get_socket_from_child(port_identifier()) -> gen_tcp:socket().
 get_socket_from_child(Port) ->
     tcpserver_listener:get_socket_from_child(child_pid(Port)).
 

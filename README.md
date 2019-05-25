@@ -29,7 +29,10 @@ supported:
 
 `Options` are the usual `gen_tcp:listen` options plus `{notify_socket_transfer,
 boolean()}`, which will send a `{socket_is_yours, AcceptedSocket}` message to
-the worker Pid once the socket transfer has been completed.
+the worker Pid once the socket transfer has been completed, and
+`{accept_timeout, timeout()}`, which is passed to `get_tcp:accept`.  
+Please note that when using `accept_timeout` the acceptors will only check for
+signals between timeouts.
 
 `NumAcceptors` is the number of processes in the accept queue. It can be changed
 using `tcpserver:change_port_acceptors_number/2`
@@ -49,10 +52,6 @@ premature close) is completed.
 If workers rely on the `notify_socket_transfer`, they SHOULD link to the acceptor's
 Pid (retrieved by self() in the callback) to handle the possible kill between
 the `controlling_process` call and the `socket_is_yours` message
-
-## TODO:
-
-Add `-spec` everywhere `'-.-`
 
 ## Run tests:
 ```

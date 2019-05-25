@@ -1,4 +1,10 @@
-%%% Accepts sockets connections and lets Workers handle them
+%%%-------------------------------------------------------------------
+%% @doc Accepts sockets connections and lets Workers handle them
+%% @end
+%%%-------------------------------------------------------------------
+% Part of tcpserver Erlang App
+% MIT License
+% Copyright (c) 2019 Jose Maria Perez Ramos
 -module(tcpserver_acceptor).
 
 %% API
