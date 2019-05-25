@@ -4,10 +4,6 @@
 %%%-------------------------------------------------------------------
 -module(tcpserver).
 
--behaviour(application).
--behaviour(supervisor).
-
-
 %% API
 -export([
          add_port_listener/2,
@@ -19,11 +15,12 @@
         ]).
 
 %% Application callbacks
+-behaviour(application).
 -export([start/2, stop/1]).
 
 %% Supervisor callbacks
+-behaviour(supervisor).
 -export([init/1]).
-
 
 -define(APP, ?MODULE).
 -define(DEFAULT_SOCKET_ACCEPTORS, 100).
@@ -33,14 +30,6 @@
 %% API functions
 %%====================================================================
 
-start(_StartType, _StartArgs) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
-
-
-stop(_State) ->
-    ok.
-
-
 add_port_listener(Port, WorkerSpawner) ->
     add_port_listener_int({Port, WorkerSpawner}).
 
@@ -49,22 +38,30 @@ add_port_listener(Port, WorkerSpawner) ->
 add_port_listener(Port, WorkerSpawner, ListenOptionsOrAcceptorsNumber) ->
     add_port_listener_int({Port, WorkerSpawner, ListenOptionsOrAcceptorsNumber}).
 
-
 add_port_listener(Port, WorkerSpawner, ListenOptions, AcceptorsNumber) ->
     add_port_listener_int({Port, WorkerSpawner, ListenOptions, AcceptorsNumber}).
-
 
 remove_port_listener(Port) ->
     supervisor:terminate_child(?MODULE, Port),
     supervisor:delete_child(?MODULE, Port).
 
-
-change_port_acceptors_number(Port, NewAcceptors) when is_integer(NewAcceptors), NewAcceptors > 0 ->
+change_port_acceptors_number(Port, NewAcceptors) when is_integer(NewAcceptors), NewAcceptors >= 0 ->
     tcpserver_listener:set_acceptors_num(child_pid(Port), NewAcceptors).
-
 
 get_socket_from_child(Port) ->
     tcpserver_listener:get_socket_from_child(child_pid(Port)).
+
+
+%%====================================================================
+%% Application API
+%%====================================================================
+
+start(_StartType, _StartArgs) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+stop(_State) ->
+    ok.
+
 
 %%====================================================================
 %% Supervisor callbacks
@@ -77,6 +74,7 @@ init(_) ->
 
     {ok, { FinalSupervisorFlags, [ child_spec(Listener) || Listener <- StartupListeners ]}}.
 
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -85,16 +83,12 @@ add_port_listener_int(ChildSpecArgs) ->
     application:ensure_all_started(?APP),
     supervisor:start_child(?MODULE, child_spec(ChildSpecArgs)).
 
-
 child_spec({Port, WorkerSpawner}) ->
     child_spec({Port, WorkerSpawner, []});
-
 child_spec({Port, WorkerSpawner, ListenOptions}) when is_list(ListenOptions) ->
     child_spec({Port, WorkerSpawner, ListenOptions, ?DEFAULT_SOCKET_ACCEPTORS});
-
 child_spec({Port, WorkerSpawner, AcceptorsNumber}) when is_integer(AcceptorsNumber), AcceptorsNumber > 0 ->
     child_spec({Port, WorkerSpawner, [], AcceptorsNumber});
-
 child_spec({Port, WorkerSpawner, ListenOptions, AcceptorsNumber}) ->
     #{id => Port,
       start => {tcpserver_listener, start_link, [Port, WorkerSpawner, ListenOptions, AcceptorsNumber]},
@@ -103,7 +97,6 @@ child_spec({Port, WorkerSpawner, ListenOptions, AcceptorsNumber}) ->
       type => worker
       % modules => [tcpserver_listener]
      }.
-
 
 child_pid(Port) ->
     hd([ Pid || {ListenPort, Pid, _, _} <- supervisor:which_children(?MODULE), ListenPort == Port ]).
