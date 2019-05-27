@@ -2,7 +2,7 @@
  [{description, "A simple and small OTP TCP server"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, { tcpserver, []}},
+  {mod, {tcpserver, []}},
   {applications,
    [kernel,
     stdlib

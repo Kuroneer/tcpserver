@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
-%% @doc Listens in a socket and maintains a pool of acceptors running
-%% @end
+%%% @doc Listens in a socket and maintains a pool of acceptors running
+%%% @end
+%%% Part of tcpserver Erlang App
+%%% MIT License
+%%% Copyright (c) 2019 Jose Maria Perez Ramos
 %%%-------------------------------------------------------------------
-% Part of tcpserver Erlang App
-% MIT License
-% Copyright (c) 2019 Jose Maria Perez Ramos
 -module(tcpserver_listener).
 
 %% API
@@ -130,7 +130,7 @@ handle_info({check_acceptors, CheckAcceptorsRef},
                acceptors_target_number = AcceptorsTargetNumber,
                check_acceptors_ref = CheckAcceptorsRef
               } = S) when AcceptorsTargetNumber > AcceptorsCurrentNumber ->
-    %% Need to spawn acceptors
+    % Need to spawn acceptors
     ToCreate = min(?MAX_BURST, AcceptorsTargetNumber - AcceptorsCurrentNumber),
     {NewAcceptors, NewAcceptorsSize} = create_acceptors(
                                          ListenSocket,
@@ -156,7 +156,7 @@ handle_info({check_acceptors, CheckAcceptorsRef},
                acceptors_target_number = AcceptorsTargetNumber,
                check_acceptors_ref = CheckAcceptorsRef
               } = S) when AcceptorsTargetNumber < AcceptorsCurrentNumber ->
-    %% Need to kill acceptors
+    % Need to kill acceptors
     ToRemove = min(?MAX_BURST, AcceptorsCurrentNumber - AcceptorsTargetNumber),
     Iterator = maps:iterator(Acceptors),
     {NewAcceptors, NewAcceptorsSize} = remove_acceptors(

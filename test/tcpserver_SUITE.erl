@@ -1,6 +1,8 @@
-% Part of tcpserver Erlang App
-% MIT License
-% Copyright (c) 2019 Jose Maria Perez Ramos
+%%%-------------------------------------------------------------------
+%%% Part of tcpserver Erlang App
+%%% MIT License
+%%% Copyright (c) 2019 Jose Maria Perez Ramos
+%%%-------------------------------------------------------------------
 -module(tcpserver_SUITE).
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
@@ -29,17 +31,17 @@ end_per_testcase(_Case, _Config) ->
 %%====================================================================
 
 startup(_Config) ->
-    %% Start listener
+    % Start listener
     {ok, ListenerPid, ListenSocket} = start_listener(startup, fun(_) -> undefined end),
 
-    %% Start again another listener (Starting func is discarded)
+    % Start again another listener (Starting func is discarded)
     {ok, ListenerPid, ListenSocket} = start_listener(startup, fun(_) -> undefined end),
 
-    %% Try to start another different one in the same port
+    % Try to start another different one in the same port
     {ok, Port} = inet:port(ListenSocket),
     {{error, eaddrinuse}, _ChildSpec} = start_listener(Port, fun(_) -> undefined end),
 
-    %% Now remove it and start it again in the same port but with different name
+    % Now remove it and start it again in the same port but with different name
     ok = tcpserver:remove_port_listener(startup),
     false = is_process_alive(ListenerPid),
     undefined = erlang:port_info(ListenSocket),
@@ -53,10 +55,10 @@ connect(_Config) ->
     Self = self(),
     {ok, ListenerPid, ListenSocket} = start_listener(startup, fun(Socket) -> Self ! {start_worker, Socket}, Self end),
     {ok, Port} = inet:port(ListenSocket),
-    %% Start again another listener (Starting func is discarded)
+    % Start again another listener (Starting func is discarded)
     {ok, ListenerPid, ListenSocket} = start_listener(startup, fun(_) -> undefined end),
 
-    %% Connect (Worker is created)
+    % Connect (Worker is created)
     {ok, LocalSocket} = gen_tcp:connect({127,0,0,1}, Port, []),
     false = undefined =:= erlang:port_info(LocalSocket),
     AcceptSocket = receive
@@ -64,11 +66,11 @@ connect(_Config) ->
                    after 5000 -> ct:fail("Missing start_worker message")
                    end,
 
-    %% To get notified if the socket gets closed before transfer is complete
+    % To get notified if the socket gets closed before transfer is complete
     process_flag(trap_exit, true),
     link(AcceptSocket),
 
-    %% Send something
+    % Send something
     Binary = <<0,1,2,3,4,5,6>>,
     gen_tcp:send(LocalSocket, Binary),
     receive
@@ -76,13 +78,13 @@ connect(_Config) ->
     after 5000 -> ct:fail("Missing tcp message")
     end,
 
-    %% Check that socket transfer works
+    % Check that socket transfer works
     receive
         {socket_is_yours, AcceptSocket} -> ok
     after 5000 -> ct:fail("Missing socket_is_yours message")
     end,
 
-    %% Close socket
+    % Close socket
     gen_tcp:close(LocalSocket),
     receive
         {tcp_closed, AcceptSocket} -> ok
@@ -105,7 +107,7 @@ acceptor_crash(_Config) ->
     {ok, Port} = inet:port(ListenSocket),
     {state, _, _, _, _, _, _, _, Acceptors, _} = sys:get_state(ListenerPid),
 
-    %% Reduce number of acceptors
+    % Reduce number of acceptors
     process_flag(trap_exit, true),
     OriginalAcceptorsNum = maps:size(Acceptors),
     NewAcceptorsNum = 10,
@@ -113,7 +115,7 @@ acceptor_crash(_Config) ->
     tcpserver:change_port_acceptors_number(startup, NewAcceptorsNum),
     [ receive {'EXIT', _, _} -> ok after 5000 -> ct:fail("missing exit message") end || _ <- lists:seq(1, OriginalAcceptorsNum - NewAcceptorsNum) ],
 
-    %% All current acceptors crash
+    % All current acceptors crash
     {state, _, _, _, _, _, _, _, Acceptors2, _} = sys:get_state(ListenerPid),
     Sockets = [ element(2, gen_tcp:connect({127,0,0,1}, Port, [])) || _ <- maps:keys(Acceptors2) ],
     [ receive {tcp_closed, S} -> ok after 5000 -> ct:fail("missing tcp_closed message") end || S <- Sockets],
@@ -124,10 +126,10 @@ acceptor_crash(_Config) ->
     {state, _, _, _, _, _, _, _, _, CheckAcceptorsRef} = sys:get_state(ListenerPid),
     ListenerPid ! {check_acceptors, CheckAcceptorsRef}, % Trigger check
 
-    %% But some other gets accepted
+    % But some other gets accepted
     {ok, LocalSocket} = gen_tcp:connect({127,0,0,1}, Port, [{ip, {127,0,0,2}}]),
 
-    %% controlling_process has finished
+    % controlling_process has finished
     receive
         {socket_is_yours, _} -> ok
     after 5000 -> ct:fail("Missing socket_is_yours message")
@@ -150,7 +152,7 @@ accept_timeout(_Config) ->
     process_flag(trap_exit, true),
     [ link(AcceptorPid) || AcceptorPid <- maps:keys(Acceptors) ],
 
-    timer:sleep(50), %% to skip over the first inbox check
+    timer:sleep(50), % to skip over the first inbox check
     tcpserver:change_port_acceptors_number(startup, 0),
     poll_until_acceptors_num_reach(ListenerPid, 0),
 
@@ -190,7 +192,7 @@ accept_timeout(_Config) ->
 %%====================================================================
 
 start_listener(Port, WorkerSpawner) ->
-    %% 35 acceptors because it's higher than max_burst
+    % 35 acceptors because it's higher than max_burst
     start_listener(Port, WorkerSpawner, [], 35).
 
 start_listener_with_timeout(Port, WorkerSpawner) ->
